@@ -10,15 +10,14 @@ import {
     Alert,
     Image
 } from 'react-native';
-import {Toast} from 'react-native-toast'
-import { MessageBarManager } from 'react-native-message-bar'
+import Auth0 from 'react-native-auth0';
 
 export default class Login extends React.Component {
     STORAGE_KEY = 'id_token'
 
     state = {
-        username: '',
-        password: '',
+        username: null,
+        password: null,
         isLoggingIn: false,
         message: ''
     }
@@ -31,7 +30,7 @@ export default class Login extends React.Component {
         }
     }
 
-    _userLogin = () =>{
+    _userLogin1 = () =>{
         dataOBj = {
             client_id:'0kTu00V7ZD1Uz3z50VXXYcjjz3NL1tbd',
             client_secret:'W6rrXXRkMntUjAUxGmXp5wO6kolJiE1CPHCTuZYWA5GaKwboAOdxmypD-M13GK2O',
@@ -57,64 +56,82 @@ export default class Login extends React.Component {
             this.setState({ isLoggingIn: false })
             if (proceed) {
                 this.setState({isLoggedIn: true})
-                this.props.navigation.navigate('LoginOptions')
             }
 
-        })
-        .catch(err => {
+        }).catch(err => {
             this.setState({ message: err });
             this.setState({ isLoggingIn: false })
 		});
     }
 
+
+    _userLogin = () => {
+            auth0 = new Auth0({
+                clientId:    '0kTu00V7ZD1Uz3z50VXXYcjjz3NL1tbd',
+                domain:      'testing-react.auth0.com',
+            });
+
+            auth0.auth
+                .passwordRealm({
+                    username: this.state.username,
+                    password: this.state.password,
+                    realm: "Username-Password-Authentication"
+                }).then(credentials => {
+                    this.setState({
+                        id_token: credentials.accessToken,
+                        clientId: credentials.idToken,
+                    });
+                    this.props.navigation.navigate('LoginOptions')
+                    console.log("here", credentials)
+                    console.log("this.state: ", this.state)
+                    console.log("this.state.id_token: ", this.state.id_token)
+                }).catch(error => {
+                    Alert.alert(
+                      'Login Error',
+                      error.message,
+                      [
+                        {text: 'OK', onPress: () => console.log('OK Pressed')},
+                      ],
+                      { cancelable: false }
+                    )
+                });
+        }
 
 
     _userSignup = () => {
-        console.log(this.state)
-        fetch("https://testing-react.auth0.com/dbconnections/signup", {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                client_id: 'opBiNRZn3x5yRHIPAXzhCft502h1VjhB',
-                email: 'something4@gmail.com',
-                password: 'Thales01*',
+        auth0 = new Auth0({
+            clientId:    '0kTu00V7ZD1Uz3z50VXXYcjjz3NL1tbd',
+            domain:      'testing-react.auth0.com',
+        });
+        auth0.auth
+            .createUser({
+                email: this.state.username,
+                password: this.state.password,
                 connection: 'Username-Password-Authentication'
-            })
-        })
-        .then((response) => response)
-        .then((response) => {
-            console.log("status12: " + response["status"])
-            const error_code = JSON.parse(response["_bodyText"])["code"]
-            console.log("ID: " + error_code)
-            if (response["status"]==200) {
-                proceed = true
-                console.log("ID: " + response["_bodyText"])
-            }else if(response["status"]==400 && error_code == 'user_exists'){
-                proceed = true
-                Toast.showShortTop.bind(null, "this is a message")
-                console.log("response: " + JSON.stringify(response))
-                this.setState({ message: response["message"] });
-            }
-        }).then(() => {
-            console.log(this.state)
-            this.setState({ isLoggingIn: false })
-            if (proceed) {
-                this.setState({isLoggedIn: true})
-                this.props.onLoginPress()
-            }
-
-        })
-        .catch(err => {
-            this.setState({ message: err });
-            this.setState({ isLoggingIn: false })
-            console.log(this.state)
-            console.log(err.message)
-            console.log({message})
-		});
+            }).then(() => {
+                Alert.alert(
+                  'SignUp Sucess!',
+                  'Account created sucessfully, you may now login',
+                  [
+                    {text: 'OK', onPress: () => console.log('OK Pressed')},
+                  ],
+                  { cancelable: false }
+                )
+                console.log("error1.message: " + error.message)
+            }).catch(error => {
+                Alert.alert(
+                  'SignUp Error',
+                  error.message,
+                  [
+                    {text: 'OK', onPress: () => console.log('OK Pressed')},
+                  ],
+                  { cancelable: false }
+                )
+                console.log("error1.message: " + error.message)
+            });
     }
+
+
 
     clearUsername = () => {
         this._username.setNativeProps({ text: '' });
@@ -127,25 +144,16 @@ export default class Login extends React.Component {
         this.setState({ message: '' });
     }
 
-    ComponentDidMount(){
-        MessageBarManager.registerMessageBar(this.refs.alert)
-        MessageBarManager.showAlert({
-            title: 'Your alert title goes here',
-            message: 'Your alert message goes here',
-            alertType: 'success',
-            // See Properties section for full customization
-            // Or check `index.ios.js` or `index.android.js` for a complete example
-        });
-    }
-
-    componentWillUnmount() {
-      // Remove the alert located on this master page from the manager
-      MessageBarManager.unregisterMessageBar();
-    }
-
     static navigationOptions = {
         header: null
     };
+
+    _onHideUnderlay(){
+    this.setState({ pressStatus: false });
+  }
+  _onShowUnderlay(){
+    this.setState({ pressStatus: true });
+  }
 
     render() {
         return (
@@ -211,6 +219,16 @@ var styles = StyleSheet.create({
     height: 36,
     backgroundColor: '#FF4500',
     borderColor: '#FF4500',
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignSelf: 'stretch',
+    justifyContent: 'center'
+  },
+  buttonPress: {
+    height: 36,
+    backgroundColor: '#FF6A33',
+    borderColor: '#FF6A33',
     borderWidth: 1,
     borderRadius: 8,
     marginBottom: 10,
